@@ -1,0 +1,7 @@
+../Core/Src/cooling.c:55:6:Cooling_Init	16	static
+../Core/Src/cooling.c:76:6:Cooling_Update	16	static
+../Core/Src/cooling.c:125:6:update_pwm	16	static
+../Core/Src/cooling.c:174:9:get_temp	24	static
+../Core/Src/cooling.c:181:9:get_air_temp	40	static
+../Core/Src/cooling.c:188:6:set_pump_speed	16	static
+../Core/Src/cooling.c:193:6:set_fan_speed	16	static

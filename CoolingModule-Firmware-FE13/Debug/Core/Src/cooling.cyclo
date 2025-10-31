@@ -1,0 +1,7 @@
+../Core/Src/cooling.c:55:6:Cooling_Init	1
+../Core/Src/cooling.c:76:6:Cooling_Update	2
+../Core/Src/cooling.c:125:6:update_pwm	8
+../Core/Src/cooling.c:174:9:get_temp	1
+../Core/Src/cooling.c:181:9:get_air_temp	1
+../Core/Src/cooling.c:188:6:set_pump_speed	1
+../Core/Src/cooling.c:193:6:set_fan_speed	1
