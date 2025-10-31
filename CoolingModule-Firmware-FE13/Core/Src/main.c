@@ -69,7 +69,12 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint32_t ADC_RES_BUFFER[4];
+	// 4 channels:
+	// [0] = inlet_temp
+	// [1] = outlet_temp
+	// [2] = air_in_temp
+	// [3] = air_out_temp
 /* USER CODE END 0 */
 
 /**
@@ -110,6 +115,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   CAN_Filter_Init(); // hcan1 is PCAN, hcan2 is TCAN
+  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4); // begin continuous ADC scanning
   Cooling_Init();
   /* USER CODE END 2 */
 

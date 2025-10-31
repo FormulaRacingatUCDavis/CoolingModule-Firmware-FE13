@@ -23,6 +23,8 @@ extern TIM_HandleTypeDef htim1;
 
 extern CAN_DATA_t can_data;
 
+extern uint32_t ADC_RES_BUFFER[4];
+
 extern CAN_HandleTypeDef hcan1;
 extern CAN_HandleTypeDef hcan2;
 
@@ -42,6 +44,14 @@ ADC_Input_t adc_extra_4;
 PWM_Output_t pwm_fan;
 PWM_Output_t pwm_pump;
 PWM_Output_t pwm_extra;
+
+uint8_t num_samples_considered;
+
+uint16_t inlet_temp_average;
+uint16_t outlet_temp_average;
+uint16_t air_in_temp_average;
+uint16_t air_out_temp_average;
+
 
 
 // PRIVATE FUNCTION PROTOTYPES
@@ -120,6 +130,16 @@ void Cooling_Update()
 
 
 	update_pwm(inlet_temp);
+}
+
+// ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	if (num_samples_considered == 0) {
+		inlet_temp_average = ADC_RES_BUFFER[0];
+		outlet_temp_average = ADC_RES_BUFFER[1];
+		air_in_temp_average = ADC_RES_BUFFER[2];
+		air_out_temp_average = ADC_RES_BUFFER[3];
+	}
 }
 
 void update_pwm(int16_t inlet_temp)
