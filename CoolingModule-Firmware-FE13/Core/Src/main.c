@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "can_manager.h"
+#include "cooling.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
