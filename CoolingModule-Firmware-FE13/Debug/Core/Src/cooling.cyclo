@@ -1,8 +1,8 @@
-../Core/Src/cooling.c:65:6:Cooling_Init	1
-../Core/Src/cooling.c:86:6:Cooling_Update	2
-../Core/Src/cooling.c:136:6:HAL_ADC_ConvCpltCallback	2
-../Core/Src/cooling.c:145:6:update_pwm	8
-../Core/Src/cooling.c:194:9:get_temp	1
-../Core/Src/cooling.c:201:9:get_air_temp	1
-../Core/Src/cooling.c:208:6:set_pump_speed	1
-../Core/Src/cooling.c:213:6:set_fan_speed	1
+../Core/Src/cooling.c:66:6:Cooling_Init	1
+../Core/Src/cooling.c:87:6:Cooling_Update	2
+../Core/Src/cooling.c:137:6:HAL_ADC_ConvCpltCallback	3
+../Core/Src/cooling.c:167:6:update_pwm	8
+../Core/Src/cooling.c:216:9:get_temp	1
+../Core/Src/cooling.c:223:9:get_air_temp	1
+../Core/Src/cooling.c:230:6:set_pump_speed	1
+../Core/Src/cooling.c:235:6:set_fan_speed	1

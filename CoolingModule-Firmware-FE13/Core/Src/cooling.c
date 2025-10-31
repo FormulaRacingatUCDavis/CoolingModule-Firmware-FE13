@@ -9,7 +9,8 @@
 #define PSI_PER_KPA 0.145038
 #define HI8(x) ((x>>8)&0xFF)
 #define LO8(x) (x&0xFF);
-#define BUZZ_TIME_MS 1500
+
+#define NUM_SAMPLES_IN_AVERAGE 5
 
 #define PUMP_THRESH 400
 #define FAN_THRESH_1 400
@@ -45,12 +46,12 @@ PWM_Output_t pwm_fan;
 PWM_Output_t pwm_pump;
 PWM_Output_t pwm_extra;
 
-uint8_t num_samples_considered;
+uint8_t num_samples;
 
-uint16_t inlet_temp_average;
-uint16_t outlet_temp_average;
-uint16_t air_in_temp_average;
-uint16_t air_out_temp_average;
+uint32_t inlet_temp_average;
+uint32_t outlet_temp_average;
+uint32_t air_in_temp_average;
+uint32_t air_out_temp_average;
 
 
 
@@ -134,11 +135,32 @@ void Cooling_Update()
 
 // ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	if (num_samples_considered == 0) {
+	if (num_samples == 0) { // first sample of this average
 		inlet_temp_average = ADC_RES_BUFFER[0];
 		outlet_temp_average = ADC_RES_BUFFER[1];
 		air_in_temp_average = ADC_RES_BUFFER[2];
 		air_out_temp_average = ADC_RES_BUFFER[3];
+	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
+		// calculate running average
+		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
+		num_samples++;
+		inlet_temp_average = inlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
+		outlet_temp_average = outlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+		air_in_temp_average = air_in_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
+		air_out_temp_average = air_out_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
+	} else {
+		// send over can
+
+
+		// save most recent value
+
+
+		// reset averages and num_samples
+		inlet_temp_average = 0;
+		outlet_temp_average = 0;
+		air_in_temp_average = 0;
+		air_out_temp_average = 0;
+		num_samples = 0;
 	}
 }
 
