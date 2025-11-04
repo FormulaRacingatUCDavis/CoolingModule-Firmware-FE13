@@ -24,23 +24,12 @@ extern TIM_HandleTypeDef htim1;
 
 extern CAN_DATA_t can_data;
 
-extern uint32_t ADC_RES_BUFFER[4];
-
 extern CAN_HandleTypeDef hcan1;
 extern CAN_HandleTypeDef hcan2;
 
+extern uint32_t ADC_RES_BUFFER[4]; // buffer for ADC DMA
+
 // PRIVATE GLOBALS
-ADC_Input_t adc_inlet_temp;
-ADC_Input_t adc_outlet_temp;
-ADC_Input_t adc_air_in_temp;
-ADC_Input_t adc_air_out_temp;
-ADC_Input_t adc_extra_1;
-ADC_Input_t adc_extra_2;
-ADC_Input_t adc_extra_3;
-ADC_Input_t adc_extra_4;
-// no longer needed:
-//ADC_Input_t adc_inlet_pres;
-//ADC_Input_t adc_outlet_pres;
 
 PWM_Output_t pwm_fan;
 PWM_Output_t pwm_pump;
@@ -48,10 +37,16 @@ PWM_Output_t pwm_extra;
 
 uint8_t num_samples;
 
-uint32_t inlet_temp_average;
-uint32_t outlet_temp_average;
-uint32_t air_in_temp_average;
-uint32_t air_out_temp_average;
+// average ADC readings
+uint64_t adc_inlet_temp_average = 0;
+uint64_t adc_outlet_temp_average = 0;
+uint64_t adc_air_in_temp_average = 0;
+uint64_t adc_air_out_temp_average = 0;
+
+uint16_t curr_inlet_temp = 0;
+uint16_t curr_outlet_temp = 0;
+uint16_t curr_air_in_temp = 0;
+uint16_t curr_air_out_temp = 0;
 
 
 
@@ -64,21 +59,19 @@ void set_pump_speed(uint8_t speed);
 void update_pwm(int16_t inlet_temp);
 
 void Cooling_Init(){
-	// TODO check channels
-	ADC_Input_Init(&adc_inlet_temp, &hadc1, ADC_CHANNEL_0, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_outlet_temp, &hadc1, ADC_CHANNEL_1, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_air_in_temp, &hadc1, ADC_CHANNEL_2, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_air_out_temp, &hadc1, ADC_CHANNEL_3, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_extra_1, &hadc1, ADC_CHANNEL_14, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_extra_2, &hadc1, ADC_CHANNEL_15, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_extra_3, &hadc1, ADC_CHANNEL_8, 1, ADC_SAMPLETIME_480CYCLES);
-	ADC_Input_Init(&adc_extra_4, &hadc1, ADC_CHANNEL_9, 1, ADC_SAMPLETIME_480CYCLES);
-	//  ADC_Input_Init(&adc_inlet_pres, &hadc1, ADC_CHANNEL_4, 1, ADC_SAMPLETIME_480CYCLES);
-	//	ADC_Input_Init(&adc_outlet_pres, &hadc1, ADC_CHANNEL_5, 1, ADC_SAMPLETIME_480CYCLES);
-
 	PWM_Init(&pwm_fan, &htim1, TIM_CHANNEL_1);
 	PWM_Init(&pwm_pump, &htim1, TIM_CHANNEL_2);
 	PWM_Init(&pwm_extra, &htim1, TIM_CHANNEL_3);
+
+	adc_inlet_temp_average = 0;
+	adc_outlet_temp_average = 0;
+	adc_air_in_temp_average = 0;
+	adc_air_out_temp_average = 0;
+
+	curr_inlet_temp = 0;
+	curr_outlet_temp = 0;
+	curr_air_in_temp = 0;
+	curr_air_out_temp = 0;
 
 	set_pump_speed(255);
 	set_fan_speed(128);
@@ -86,80 +79,53 @@ void Cooling_Init(){
 
 void Cooling_Update()
 {
-	static uint8_t loop_count = 0;
-	static uint8_t tx_data[8];
-
-
-	loop_count++;
-	if(loop_count <= SLOW_DIVIDER) return;
-	loop_count = 0;
-
-	// NOTE: can send temps and pressures at reduced frequency if CAN traffic too high
-
-	ADC_Measure(&adc_inlet_temp, 1000);
-	ADC_Measure(&adc_outlet_temp, 1000);
-	ADC_Measure(&adc_air_in_temp, 1000);
-	ADC_Measure(&adc_air_out_temp, 1000);
-
-	int16_t inlet_temp = get_temp(adc_inlet_temp.value);
-	int16_t outlet_temp = get_temp(adc_outlet_temp.value);
-	int16_t temp_air_in = get_air_temp(adc_air_in_temp.value);
-	int16_t temp_air_out = get_air_temp(adc_air_out_temp.value);
-
-	tx_data[0] = HI8(inlet_temp);
-	tx_data[1] = LO8(inlet_temp);
-	tx_data[2] = HI8(outlet_temp);
-	tx_data[3] = LO8(outlet_temp);
-	tx_data[4] = HI8(temp_air_in);
-	tx_data[5] = LO8(temp_air_in);
-	tx_data[6] = HI8(temp_air_out);
-	tx_data[7] = LO8(temp_air_out);
-	CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
-
-//	ADC_Measure(&adc_inlet_pres, 1000);
-//	ADC_Measure(&adc_outlet_pres, 1000);
-//
-//	uint16_t inlet_pres = get_pres(adc_inlet_pres.value);
-//	uint16_t outlet_pres = get_pres(adc_outlet_pres.value);
-//
-//	tx_data[0] = HI8(inlet_pres);
-//	tx_data[1] = LO8(inlet_pres);
-//	tx_data[2] = HI8(outlet_pres);
-//	tx_data[3] = LO8(outlet_pres);
-//	CAN_Send(&hcan2, COOLING_LOOP_PRESSURES, tx_data, 4);
-
-
-
-	update_pwm(inlet_temp);
+	update_pwm(curr_inlet_temp);
 }
 
 // ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	static uint8_t tx_data[8];
 	if (num_samples == 0) { // first sample of this average
-		inlet_temp_average = ADC_RES_BUFFER[0];
-		outlet_temp_average = ADC_RES_BUFFER[1];
-		air_in_temp_average = ADC_RES_BUFFER[2];
-		air_out_temp_average = ADC_RES_BUFFER[3];
+		adc_inlet_temp_average = ADC_RES_BUFFER[0];
+		adc_outlet_temp_average = ADC_RES_BUFFER[1];
+		adc_air_in_temp_average = ADC_RES_BUFFER[2];
+		adc_air_out_temp_average = ADC_RES_BUFFER[3];
 	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
 		// calculate running average
 		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
 		num_samples++;
-		inlet_temp_average = inlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
-		outlet_temp_average = outlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
-		air_in_temp_average = air_in_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
-		air_out_temp_average = air_out_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
+		adc_inlet_temp_average = adc_inlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
+		adc_outlet_temp_average = adc_outlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+		adc_air_in_temp_average = adc_air_in_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
+		adc_air_out_temp_average = adc_air_out_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
 	} else {
 		// send over can
+		int16_t inlet_temp = get_temp(adc_inlet_temp_average);
+		int16_t outlet_temp = get_temp(adc_outlet_temp_average);
+		int16_t air_in_temp = get_air_temp(adc_air_in_temp_average);
+		int16_t air_out_temp = get_air_temp(adc_air_out_temp_average);
 
+		tx_data[0] = HI8(inlet_temp);
+		tx_data[1] = LO8(inlet_temp);
+		tx_data[2] = HI8(outlet_temp);
+		tx_data[3] = LO8(outlet_temp);
+		tx_data[4] = HI8(air_in_temp);
+		tx_data[5] = LO8(air_in_temp);
+		tx_data[6] = HI8(air_out_temp);
+		tx_data[7] = LO8(air_out_temp);
+		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
 
 		// save most recent value
-
+		curr_inlet_temp = inlet_temp;
+		curr_outlet_temp = outlet_temp;
+		curr_air_in_temp = air_in_temp;
+		curr_air_out_temp = air_out_temp;
 
 		// reset averages and num_samples
-		inlet_temp_average = 0;
-		outlet_temp_average = 0;
-		air_in_temp_average = 0;
-		air_out_temp_average = 0;
+		adc_inlet_temp_average = 0;
+		adc_outlet_temp_average = 0;
+		adc_air_in_temp_average = 0;
+		adc_air_out_temp_average = 0;
 		num_samples = 0;
 	}
 }
@@ -236,14 +202,5 @@ void set_fan_speed(uint8_t speed)
 {
 	PWM_SetDutyCycle(&pwm_fan, speed);
 }
-
-//uint16_t get_pres(uint16_t adc_val)
-//{
-//	// GE2098 sensor
-//	// equation from datasheet
-//	float v = (float)adc_val * (3.3/4095.0) / VOLTAGE_DIVIDER_RATIO;
-//	float pres = (((v / 5.0) + 0.011453) / 0.0045726) * PSI_PER_KPA;
-//	return (uint16_t)(pres*100);
-//}
 
 
