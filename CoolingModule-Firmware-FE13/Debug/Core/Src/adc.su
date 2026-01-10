@@ -1,2 +1,0 @@
-../Core/Src/adc.c:10:6:ADC_Input_Init	24	static
-../Core/Src/adc.c:19:19:ADC_Measure	24	static

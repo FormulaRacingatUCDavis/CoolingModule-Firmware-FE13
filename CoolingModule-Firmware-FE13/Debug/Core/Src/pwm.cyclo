@@ -1,2 +1,0 @@
-../Core/Src/pwm.c:10:19:PWM_Init	1
-../Core/Src/pwm.c:18:6:PWM_SetDutyCycle	5

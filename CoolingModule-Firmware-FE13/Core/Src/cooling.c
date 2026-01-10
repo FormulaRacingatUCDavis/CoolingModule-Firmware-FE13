@@ -86,6 +86,7 @@ void Cooling_Update()
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint8_t tx_data[8];
 	if (num_samples == 0) { // first sample of this average
+		num_samples++;
 		adc_inlet_temp_average = ADC_RES_BUFFER[0];
 		adc_outlet_temp_average = ADC_RES_BUFFER[1];
 		adc_air_in_temp_average = ADC_RES_BUFFER[2];
@@ -114,6 +115,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		tx_data[6] = HI8(air_out_temp);
 		tx_data[7] = LO8(air_out_temp);
 		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
+
 
 		// save most recent value
 		curr_inlet_temp = inlet_temp;
