@@ -36,6 +36,9 @@ void CAN_Filter_Init()
 	if ( HAL_CAN_Start(&hcan1) != HAL_OK) {
 		Error_Handler();
 	}
+	if (HAL_CAN_Start(&hcan2) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 HAL_StatusTypeDef CAN_Send(CAN_HandleTypeDef *hcan_ptr, uint32_t id, uint8_t* data, uint8_t len)

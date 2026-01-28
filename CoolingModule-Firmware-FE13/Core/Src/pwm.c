@@ -17,7 +17,7 @@ HAL_StatusTypeDef PWM_Init(PWM_Output_t* pwm, TIM_HandleTypeDef* h_tim, uint32_t
 
 void PWM_SetDutyCycle(PWM_Output_t* pwm, uint8_t duty)
 {
-	uint32_t ccr = pwm->h_tim->Instance->ARR * (255-duty) / 255;
+	uint32_t ccr = pwm->h_tim->Instance->ARR * (duty) / 255;
 
 	switch(pwm->channel)
 	{
