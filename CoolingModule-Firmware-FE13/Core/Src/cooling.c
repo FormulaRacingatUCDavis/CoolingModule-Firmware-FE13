@@ -35,7 +35,7 @@ PWM_Output_t pwm_fan;
 PWM_Output_t pwm_pump;
 PWM_Output_t pwm_extra;
 
-uint8_t num_samples;
+uint8_t num_samples = 0;
 
 // average ADC readings
 uint64_t adc_inlet_temp_average = 0;
@@ -48,6 +48,11 @@ uint16_t curr_outlet_temp = 0;
 uint16_t curr_air_in_temp = 0;
 uint16_t curr_air_out_temp = 0;
 
+uint16_t s1_buf[5];
+uint16_t s2_buf[5];
+uint16_t s3_buf[5];
+uint16_t s4_buf[5];
+uint8_t ready_to_send = 0;
 
 
 // PRIVATE FUNCTION PROTOTYPES
@@ -82,24 +87,14 @@ void Cooling_Update()
 	update_pwm(curr_inlet_temp);
 }
 
-// ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+void Process_Average(){
 	static uint8_t tx_data[8];
-	if (num_samples == 0) { // first sample of this average
-		num_samples++;
-		adc_inlet_temp_average = ADC_RES_BUFFER[0];
-		adc_outlet_temp_average = ADC_RES_BUFFER[1];
-		adc_air_in_temp_average = ADC_RES_BUFFER[2];
-		adc_air_out_temp_average = ADC_RES_BUFFER[3];
-	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
-		// calculate running average
-		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
-		num_samples++;
-		adc_inlet_temp_average = adc_inlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
-		adc_outlet_temp_average = adc_outlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
-		adc_air_in_temp_average = adc_air_in_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
-		adc_air_out_temp_average = adc_air_out_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
-	} else {
+	if(ready_to_send){
+		adc_inlet_temp_average = (s1_buf[0] + s1_buf[1] + s1_buf[2] + s1_buf[3] + s1_buf[4]) / 5;
+		adc_outlet_temp_average = (s2_buf[0] + s2_buf[1] + s2_buf[2] + s2_buf[3] + s2_buf[4]) / 5;
+		adc_air_in_temp_average = (s3_buf[0] + s3_buf[1] + s3_buf[2] + s3_buf[3] + s3_buf[4]) / 5;
+		adc_air_out_temp_average = (s4_buf[0] + s4_buf[1] + s4_buf[2] + s4_buf[3] + s4_buf[4]) / 5;
+
 		// send over can
 		int16_t inlet_temp = get_temp(adc_inlet_temp_average);
 		int16_t outlet_temp = get_temp(adc_outlet_temp_average);
@@ -116,7 +111,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		tx_data[7] = LO8(air_out_temp);
 		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
 
-
 		// save most recent value
 		curr_inlet_temp = inlet_temp;
 		curr_outlet_temp = outlet_temp;
@@ -128,6 +122,19 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		adc_outlet_temp_average = 0;
 		adc_air_in_temp_average = 0;
 		adc_air_out_temp_average = 0;
+		ready_to_send = 0;
+	}
+}
+
+// ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	s1_buf[num_samples] = ADC_RES_BUFFER[0];
+	s2_buf[num_samples] = ADC_RES_BUFFER[1];
+	s3_buf[num_samples] = ADC_RES_BUFFER[2];
+	s4_buf[num_samples] = ADC_RES_BUFFER[3];
+	num_samples++;
+	if(num_samples == 5){
+		ready_to_send = 1;
 		num_samples = 0;
 	}
 }

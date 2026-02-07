@@ -9,5 +9,6 @@
 // PUBLIC FUNCTION PROTOTYPES
 void Cooling_Init();
 void Cooling_Update();
+void Process_Average();
 
 #endif
