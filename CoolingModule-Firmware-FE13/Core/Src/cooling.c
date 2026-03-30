@@ -134,11 +134,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 
 void update_pwm(int16_t inlet_temp)
 {
-	// TODO REMOVE THIS, THIS IS FOR COOLING TESTING
-	set_pump_speed(229);
-	set_fan_speed(229);
-	return; // TODO DEFINITELY REMOVE THIS YO
-
 	// allow cooling override: use hardcoded values for pump and fan speed
 	if (can_data.PWM_requested) {
 		set_pump_speed(128);
