@@ -117,8 +117,8 @@ int main(void)
 
   CAN_Filter_Init(); // hcan1 is PCAN, hcan2 is TCAN
 
-  // TODO ADD BACK
-  //HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4); // begin continuous ADC scanning
+  // TODO VERIFY THIS WORKS
+  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4); // begin continuous ADC scanning
 
 
   Cooling_Init();
@@ -135,14 +135,10 @@ int main(void)
 
 	  Cooling_Update();
 
-	  uint8_t dummy_data[8] = {0, 1, 0, 1, 0, 1, 0, 1};
-	  CAN_Send(&hcan1, 0x420, dummy_data, 8);
-	  CAN_Send(&hcan2, 0x420, dummy_data, 8);
-
 
 	  HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
 
-	  HAL_Delay(1); // just to not constantly spam the CAN bus
+	  HAL_Delay(1);
   }
   /* USER CODE END 3 */
 }
