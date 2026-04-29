@@ -8,8 +8,12 @@
 #include "can_manager.h"
 #include "main.h"
 
+#include <stdio.h>
+
 extern CAN_HandleTypeDef hcan1;
 extern CAN_HandleTypeDef hcan2;
+
+extern UART_HandleTypeDef huart1;
 
 CAN_DATA_t can_data;
 
@@ -23,10 +27,10 @@ void CAN_Filter_Init()
 	can_filter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
 	can_filter.FilterMode = CAN_FILTERMODE_IDMASK;
 	can_filter.FilterScale = CAN_FILTERSCALE_32BIT;
-	can_filter.FilterIdHigh = 0;
-	can_filter.FilterIdLow = 0;
-	can_filter.FilterMaskIdHigh = 0;
-	can_filter.FilterMaskIdLow = 0;
+	can_filter.FilterIdHigh = 0x0000;
+	can_filter.FilterIdLow = 0x0000;
+	can_filter.FilterMaskIdHigh = 0x0000;
+	can_filter.FilterMaskIdLow = 0x0000;
 	if (HAL_CAN_ConfigFilter(&hcan1, &can_filter) != HAL_OK) {
 	  Error_Handler();
 	}
@@ -34,6 +38,10 @@ void CAN_Filter_Init()
 		Error_Handler();
 	}
 	if ( HAL_CAN_Start(&hcan1) != HAL_OK) {
+		Error_Handler();
+	}
+
+	if (HAL_CAN_Start(&hcan2) != HAL_OK) {
 		Error_Handler();
 	}
 }

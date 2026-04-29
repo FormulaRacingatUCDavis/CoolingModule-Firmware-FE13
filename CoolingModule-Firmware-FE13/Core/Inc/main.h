@@ -67,6 +67,8 @@ void Error_Handler(void);
 #define TEMP2_ADC_GPIO_Port GPIOA
 #define TEMP3_ADC_Pin GPIO_PIN_3
 #define TEMP3_ADC_GPIO_Port GPIOA
+#define HEARTBEAT_Pin GPIO_PIN_6
+#define HEARTBEAT_GPIO_Port GPIOA
 #define EXTRA_SENSOR_1_Pin GPIO_PIN_4
 #define EXTRA_SENSOR_1_GPIO_Port GPIOC
 #define EXTRA_SENSOR_2_Pin GPIO_PIN_5

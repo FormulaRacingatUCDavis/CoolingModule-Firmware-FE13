@@ -75,13 +75,7 @@ void Cooling_Init(){
 
 void Cooling_Update()
 {
-	static uint8_t loop_count = 0;
 	static uint8_t tx_data[8];
-
-
-	loop_count++;
-	if(loop_count <= SLOW_DIVIDER) return;
-	loop_count = 0;
 
 	// NOTE: can send temps and pressures at reduced frequency if CAN traffic too high
 
@@ -120,6 +114,8 @@ void Cooling_Update()
 
 
 	update_pwm(inlet_temp);
+	HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
+	HAL_Delay(1);
 }
 
 void update_pwm(int16_t inlet_temp)
