@@ -38,10 +38,10 @@ PWM_Output_t pwm_extra;
 uint8_t num_samples;
 
 // average ADC readings
-uint64_t adc_inlet_temp_average = 0;
-uint64_t adc_outlet_temp_average = 0;
-uint64_t adc_air_in_temp_average = 0;
-uint64_t adc_air_out_temp_average = 0;
+uint64_t adc_temp0_average = 0;
+uint64_t adc_temp1_average = 0;
+uint64_t adc_temp2_average = 0;
+uint64_t adc_temp3_average = 0;
 
 uint16_t curr_inlet_temp = 0;
 uint16_t curr_outlet_temp = 0;
@@ -63,10 +63,10 @@ void Cooling_Init(){
 	PWM_Init(&pwm_pump, &htim1, TIM_CHANNEL_2);
 	PWM_Init(&pwm_extra, &htim1, TIM_CHANNEL_3);
 
-	adc_inlet_temp_average = 0;
-	adc_outlet_temp_average = 0;
-	adc_air_in_temp_average = 0;
-	adc_air_out_temp_average = 0;
+	adc_temp0_average = 0;
+	adc_temp1_average = 0;
+	adc_temp2_average = 0;
+	adc_temp3_average = 0;
 
 	curr_inlet_temp = 0;
 	curr_outlet_temp = 0;
@@ -87,47 +87,51 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint8_t tx_data[8];
 	if (num_samples == 0) { // first sample of this average
 		num_samples++;
-		adc_inlet_temp_average = ADC_RES_BUFFER[0];
-		adc_outlet_temp_average = ADC_RES_BUFFER[1];
-		adc_air_in_temp_average = ADC_RES_BUFFER[2];
-		adc_air_out_temp_average = ADC_RES_BUFFER[3];
+		adc_temp0_average = ADC_RES_BUFFER[0];
+		adc_temp1_average = ADC_RES_BUFFER[1];
+		adc_temp2_average = ADC_RES_BUFFER[2];
+		adc_temp3_average = ADC_RES_BUFFER[3];
 	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
 		// calculate running average
 		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
 		num_samples++;
-		adc_inlet_temp_average = adc_inlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
-		adc_outlet_temp_average = adc_outlet_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
-		adc_air_in_temp_average = adc_air_in_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
-		adc_air_out_temp_average = adc_air_out_temp_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
+		adc_temp0_average = adc_temp0_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
+		adc_temp1_average = adc_temp1_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+		adc_temp2_average = adc_temp2_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
+		adc_temp3_average = adc_temp3_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
 	} else {
 		// send over can
-		int16_t inlet_temp = get_temp(adc_inlet_temp_average);
-		int16_t outlet_temp = get_temp(adc_outlet_temp_average);
-		int16_t air_in_temp = get_air_temp(adc_air_in_temp_average);
-		int16_t air_out_temp = get_air_temp(adc_air_out_temp_average);
+//		int16_t temp0 = get_temp(adc_temp0_average);
+//		int16_t temp1 = get_temp(adc_temp1_average);
+//		int16_t temp2 = get_air_temp(adc_temp2_average);
+//		int16_t temp3 = get_air_temp(adc_temp3_average);
+		int16_t temp0 = adc_temp0_average;
+		int16_t temp1 = adc_temp1_average;
+		int16_t temp2 = adc_temp2_average;
+		int16_t temp3 = adc_temp3_average;
 
-		tx_data[0] = HI8(inlet_temp);
-		tx_data[1] = LO8(inlet_temp);
-		tx_data[2] = HI8(outlet_temp);
-		tx_data[3] = LO8(outlet_temp);
-		tx_data[4] = HI8(air_in_temp);
-		tx_data[5] = LO8(air_in_temp);
-		tx_data[6] = HI8(air_out_temp);
-		tx_data[7] = LO8(air_out_temp);
+		tx_data[0] = HI8(temp0);
+		tx_data[1] = LO8(temp0);
+		tx_data[2] = HI8(temp1);
+		tx_data[3] = LO8(temp1);
+		tx_data[4] = HI8(temp2);
+		tx_data[5] = LO8(temp2);
+		tx_data[6] = HI8(temp3);
+		tx_data[7] = LO8(temp3);
 		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
 
 
 		// save most recent value
-		curr_inlet_temp = inlet_temp;
-		curr_outlet_temp = outlet_temp;
-		curr_air_in_temp = air_in_temp;
-		curr_air_out_temp = air_out_temp;
+		curr_inlet_temp = temp0;
+		curr_outlet_temp = temp1;
+		curr_air_in_temp = temp2;
+		curr_air_out_temp = temp3;
 
 		// reset averages and num_samples
-		adc_inlet_temp_average = 0;
-		adc_outlet_temp_average = 0;
-		adc_air_in_temp_average = 0;
-		adc_air_out_temp_average = 0;
+		adc_temp0_average = 0;
+		adc_temp1_average = 0;
+		adc_temp2_average = 0;
+		adc_temp3_average = 0;
 		num_samples = 0;
 	}
 }
@@ -156,27 +160,27 @@ void update_pwm(int16_t inlet_temp)
 		pump_t = PUMP_THRESH + HYSTERESIS;
 	}
 
-	if(inlet_temp > fan_t3){
-		set_fan_speed(255);
-		fan_t1 = FAN_THRESH_1;
-		fan_t2 = FAN_THRESH_2;
-		fan_t3 = FAN_THRESH_3;
-	} else if(inlet_temp > fan_t2){
-		set_fan_speed(180);
-		fan_t1 = FAN_THRESH_1;
-		fan_t2 = FAN_THRESH_2;
-		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
-	} else if(inlet_temp > fan_t1){
-		fan_t1 = FAN_THRESH_1;
-		fan_t2 = FAN_THRESH_2 + HYSTERESIS;
-		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
-		set_fan_speed(100);
-	} else {
-		fan_t1 = FAN_THRESH_1 + HYSTERESIS;
-		fan_t2 = FAN_THRESH_2 + HYSTERESIS;
-		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
-		set_fan_speed(0);
-	}
+//	if(inlet_temp > fan_t3){
+//		set_fan_speed(255);
+//		fan_t1 = FAN_THRESH_1;
+//		fan_t2 = FAN_THRESH_2;
+//		fan_t3 = FAN_THRESH_3;
+//	} else if(inlet_temp > fan_t2){
+//		set_fan_speed(180);
+//		fan_t1 = FAN_THRESH_1;
+//		fan_t2 = FAN_THRESH_2;
+//		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
+//	} else if(inlet_temp > fan_t1){
+//		fan_t1 = FAN_THRESH_1;
+//		fan_t2 = FAN_THRESH_2 + HYSTERESIS;
+//		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
+//		set_fan_speed(100);
+//	} else {
+//		fan_t1 = FAN_THRESH_1 + HYSTERESIS;
+//		fan_t2 = FAN_THRESH_2 + HYSTERESIS;
+//		fan_t3 = FAN_THRESH_3 + HYSTERESIS;
+//		set_fan_speed(0);
+//	}
 }
 
 int16_t get_temp(uint16_t adc_val)
