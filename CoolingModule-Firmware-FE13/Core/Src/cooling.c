@@ -82,21 +82,32 @@ void Cooling_Update()
 	update_pwm(curr_inlet_temp);
 }
 
-// ISR called when ADC finishes conversion and DMA has written to ADC_RES_BUFFER
+// ISR called when ADC finishes half of the conversions and DMA has written them to ADC_RES_BUFFER
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+	if (num_samples == 0) { // first sample of this average
+		adc_temp0_average = ADC_RES_BUFFER[0];
+		adc_temp1_average = ADC_RES_BUFFER[1];
+	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
+		// calculate running average
+		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
+		adc_temp0_average = adc_temp0_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
+		adc_temp1_average = adc_temp1_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+	}
+}
+
+// ISR called when ADC finishes all conversions and DMA has written to ADC_RES_BUFFER
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint8_t tx_data[8];
 	if (num_samples == 0) { // first sample of this average
 		num_samples++;
-		adc_temp0_average = ADC_RES_BUFFER[0];
-		adc_temp1_average = ADC_RES_BUFFER[1];
+
 		adc_temp2_average = ADC_RES_BUFFER[2];
 		adc_temp3_average = ADC_RES_BUFFER[3];
 	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
 		// calculate running average
 		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
 		num_samples++;
-		adc_temp0_average = adc_temp0_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
-		adc_temp1_average = adc_temp1_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+
 		adc_temp2_average = adc_temp2_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
 		adc_temp3_average = adc_temp3_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
 	} else {
@@ -118,8 +129,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		tx_data[5] = LO8(temp2);
 		tx_data[6] = HI8(temp3);
 		tx_data[7] = LO8(temp3);
-		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
-
+		CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after thermistor calibration
 
 		// save most recent value
 		curr_inlet_temp = temp0;
@@ -148,7 +158,7 @@ void update_pwm(int16_t inlet_temp)
 	// threshold variables to add hysteresis
 	static int fan_t1 = FAN_THRESH_1 + HYSTERESIS;
 	static int fan_t2 = FAN_THRESH_2 + HYSTERESIS;
-	static int fan_t3 = FAN_THRESH_2 + HYSTERESIS;
+	static int fan_t3 = FAN_THRESH_3 + HYSTERESIS;
 	static int pump_t = PUMP_THRESH + HYSTERESIS;
 
 	//TODO: update these values to consider ambient air temp, vehicle speed, etc?
@@ -160,6 +170,7 @@ void update_pwm(int16_t inlet_temp)
 		pump_t = PUMP_THRESH + HYSTERESIS;
 	}
 
+	// TODO: uncomment after thermistor calibration
 //	if(inlet_temp > fan_t3){
 //		set_fan_speed(255);
 //		fan_t1 = FAN_THRESH_1;
