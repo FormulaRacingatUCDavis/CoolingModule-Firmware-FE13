@@ -113,7 +113,7 @@ void Cooling_Update()
 
 
 
-	update_pwm(inlet_temp);
+	//update_pwm(inlet_temp);
 	HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
 	HAL_Delay(1);
 }
