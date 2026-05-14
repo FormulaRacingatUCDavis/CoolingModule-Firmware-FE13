@@ -70,7 +70,7 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint32_t ADC_RES_BUFFER[4];
+uint16_t ADC_RES_BUFFER[4];
 	// 4 channels:
 	// [0] = inlet_temp
 	// [1] = outlet_temp

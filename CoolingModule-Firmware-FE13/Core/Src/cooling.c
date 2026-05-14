@@ -26,7 +26,7 @@ extern CAN_DATA_t can_data;
 extern CAN_HandleTypeDef hcan1;
 extern CAN_HandleTypeDef hcan2;
 
-extern uint32_t ADC_RES_BUFFER[4]; // buffer for ADC DMA
+extern uint16_t ADC_RES_BUFFER[4]; // buffer for ADC DMA
 
 // PRIVATE GLOBALS
 
@@ -114,7 +114,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		tx_data[5] = LO8(temp2);
 		tx_data[6] = HI8(temp3);
 		tx_data[7] = LO8(temp3);
-		CAN_Send(&hcan2, COOLING_LOOP_TEMPS, tx_data, 8);
+		CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after testing that DAQ works
 
 		// reset averages and num_samples
 		adc_temp0_average = 0;
