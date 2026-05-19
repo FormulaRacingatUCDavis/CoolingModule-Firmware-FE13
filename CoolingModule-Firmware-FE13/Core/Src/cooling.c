@@ -42,7 +42,9 @@ uint64_t adc_temp1_average = 0;
 uint64_t adc_temp2_average = 0;
 uint64_t adc_temp3_average = 0;
 
+uint8_t can_loop_counter = 0;
 
+#define CAN_LOOP_DELAY 10
 
 // PRIVATE FUNCTION PROTOTYPES
 //uint16_t get_pres(uint16_t adc_val);
@@ -100,21 +102,27 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		adc_temp2_average = adc_temp2_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
 		adc_temp3_average = adc_temp3_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
 	} else {
-		// send over can
-		int16_t temp0 = adc_temp0_average;
-		int16_t temp1 = adc_temp1_average;
-		int16_t temp2 = adc_temp2_average;
-		int16_t temp3 = adc_temp3_average;
 
-		tx_data[0] = HI8(temp0);
-		tx_data[1] = LO8(temp0);
-		tx_data[2] = HI8(temp1);
-		tx_data[3] = LO8(temp1);
-		tx_data[4] = HI8(temp2);
-		tx_data[5] = LO8(temp2);
-		tx_data[6] = HI8(temp3);
-		tx_data[7] = LO8(temp3);
-		CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after testing that DAQ works
+		if (can_loop_counter > CAN_LOOP_DELAY) {
+			can_loop_counter = 0;
+			// send over can
+			int16_t temp0 = adc_temp0_average;
+			int16_t temp1 = adc_temp1_average;
+			int16_t temp2 = adc_temp2_average;
+			int16_t temp3 = adc_temp3_average;
+
+			tx_data[0] = HI8(temp0);
+			tx_data[1] = LO8(temp0);
+			tx_data[2] = HI8(temp1);
+			tx_data[3] = LO8(temp1);
+			tx_data[4] = HI8(temp2);
+			tx_data[5] = LO8(temp2);
+			tx_data[6] = HI8(temp3);
+			tx_data[7] = LO8(temp3);
+			CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after testing that DAQ works
+		} else {
+			can_loop_counter++;
+		}
 
 		// reset averages and num_samples
 		adc_temp0_average = 0;
