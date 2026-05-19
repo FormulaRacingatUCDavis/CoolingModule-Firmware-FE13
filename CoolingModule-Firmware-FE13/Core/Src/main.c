@@ -32,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define ADC_LOOP_DELAY 5
+#define CAN_LOOP_DELAY 10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -117,11 +118,12 @@ int main(void)
 
   CAN_Filter_Init(); // hcan1 is PCAN, hcan2 is TCAN
 
-  // TODO VERIFY THIS WORKS
-  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4); // begin continuous ADC scanning
-
+  uint8_t adc_loop_counter = 0;
+  uint8_t can_loop_counter = 0;
 
   Cooling_Init();
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,10 +133,25 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-
 	  Cooling_Update();
 	  HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
+
+	  // ADC Conversions
+	  if (adc_loop_counter > ADC_LOOP_DELAY && HAL_ADC_GetState(&hadc1) == HAL_ADC_STATE_READY) {
+		  adc_loop_counter = 0;
+		  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4);
+	  } else {
+		  adc_loop_counter++;
+	  }
+
+	  // Send temps over CAN
+	  if (can_loop_counter > CAN_LOOP_DELAY) {
+		  can_loop_counter = 0;
+		  CAN_Send_Temp_ADC(&hcan1); // TODO change to hcan2 once confirm DAQ works
+	  } else {
+		  can_loop_counter++;
+	  }
+
   }
   /* USER CODE END 3 */
 }
@@ -208,7 +225,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;

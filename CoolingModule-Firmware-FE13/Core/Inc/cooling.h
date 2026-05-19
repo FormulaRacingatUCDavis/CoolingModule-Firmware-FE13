@@ -10,4 +10,6 @@
 void Cooling_Init();
 void Cooling_Update();
 
+void CAN_Send_Temp_ADC(CAN_HandleTypeDef *hcan);
+
 #endif

@@ -37,14 +37,11 @@ PWM_Output_t pwm_extra;
 uint8_t num_samples;
 
 // average ADC readings
-uint64_t adc_temp0_average = 0;
-uint64_t adc_temp1_average = 0;
-uint64_t adc_temp2_average = 0;
-uint64_t adc_temp3_average = 0;
+uint16_t adc_temp0 = 0;
+uint16_t adc_temp1 = 0;
+uint16_t adc_temp2 = 0;
+uint16_t adc_temp3 = 0;
 
-uint8_t can_loop_counter = 0;
-
-#define CAN_LOOP_DELAY 10
 
 // PRIVATE FUNCTION PROTOTYPES
 //uint16_t get_pres(uint16_t adc_val);
@@ -59,10 +56,10 @@ void Cooling_Init(){
 	PWM_Init(&pwm_pump, &htim1, TIM_CHANNEL_2);
 	PWM_Init(&pwm_extra, &htim1, TIM_CHANNEL_3);
 
-	adc_temp0_average = 0;
-	adc_temp1_average = 0;
-	adc_temp2_average = 0;
-	adc_temp3_average = 0;
+	adc_temp0 = 0;
+	adc_temp1 = 0;
+	adc_temp2 = 0;
+	adc_temp3 = 0;
 
 	set_pump_speed(255);
 	set_fan_speed(128);
@@ -73,64 +70,29 @@ void Cooling_Update()
 	update_pwm(can_data.mc_temp_max);
 }
 
-// ISR called when ADC finishes half of the conversions and DMA has written them to ADC_RES_BUFFER
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	if (num_samples == 0) { // first sample of this average
-		adc_temp0_average = ADC_RES_BUFFER[0];
-		adc_temp1_average = ADC_RES_BUFFER[1];
-	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
-		// calculate running average
-		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
-		adc_temp0_average = adc_temp0_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
-		adc_temp1_average = adc_temp1_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
-	}
+	adc_temp0 = ADC_RES_BUFFER[0];
+	adc_temp1 = ADC_RES_BUFFER[1];
 }
 
-// ISR called when ADC finishes all conversions and DMA has written to ADC_RES_BUFFER
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	static uint8_t tx_data[8];
-	if (num_samples == 0) { // first sample of this average
-		num_samples++;
+	adc_temp2 = ADC_RES_BUFFER[2];
+	adc_temp3 = ADC_RES_BUFFER[3];
+}
 
-		adc_temp2_average = ADC_RES_BUFFER[2];
-		adc_temp3_average = ADC_RES_BUFFER[3];
-	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
-		// calculate running average
-		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
-		num_samples++;
+void CAN_Send_Temp_ADC(CAN_HandleTypeDef *hcan) {
+	uint8_t tx_data[8];
 
-		adc_temp2_average = adc_temp2_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
-		adc_temp3_average = adc_temp3_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
-	} else {
+	tx_data[0] = HI8(adc_temp0);
+	tx_data[1] = LO8(adc_temp0);
+	tx_data[2] = HI8(adc_temp1);
+	tx_data[3] = LO8(adc_temp1);
+	tx_data[4] = HI8(adc_temp2);
+	tx_data[5] = LO8(adc_temp2);
+	tx_data[6] = HI8(adc_temp3);
+	tx_data[7] = LO8(adc_temp3);
 
-		if (can_loop_counter > CAN_LOOP_DELAY) {
-			can_loop_counter = 0;
-			// send over can
-			int16_t temp0 = adc_temp0_average;
-			int16_t temp1 = adc_temp1_average;
-			int16_t temp2 = adc_temp2_average;
-			int16_t temp3 = adc_temp3_average;
-
-			tx_data[0] = HI8(temp0);
-			tx_data[1] = LO8(temp0);
-			tx_data[2] = HI8(temp1);
-			tx_data[3] = LO8(temp1);
-			tx_data[4] = HI8(temp2);
-			tx_data[5] = LO8(temp2);
-			tx_data[6] = HI8(temp3);
-			tx_data[7] = LO8(temp3);
-			CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after testing that DAQ works
-		} else {
-			can_loop_counter++;
-		}
-
-		// reset averages and num_samples
-		adc_temp0_average = 0;
-		adc_temp1_average = 0;
-		adc_temp2_average = 0;
-		adc_temp3_average = 0;
-		num_samples = 0;
-	}
+	CAN_Send(hcan, COOLING_LOOP_TEMPS, tx_data, 8);
 }
 
 void update_pwm(int16_t inlet_temp)
@@ -200,4 +162,64 @@ void set_fan_speed(uint8_t speed)
 	PWM_SetDutyCycle(&pwm_fan, speed);
 }
 
+/* Code for continuous ADC scan
+// ISR called when ADC finishes half of the conversions and DMA has written them to ADC_RES_BUFFER
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+	if (num_samples == 0) { // first sample of this average
+		adc_temp0_average = ADC_RES_BUFFER[0];
+		adc_temp1_average = ADC_RES_BUFFER[1];
+	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
+		// calculate running average
+		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
+		adc_temp0_average = adc_temp0_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[0] / num_samples;
+		adc_temp1_average = adc_temp1_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[1] / num_samples;
+	}
+}
 
+// ISR called when ADC finishes all conversions and DMA has written to ADC_RES_BUFFER
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	static uint8_t tx_data[8];
+	if (num_samples == 0) { // first sample of this average
+		num_samples++;
+
+		adc_temp2_average = ADC_RES_BUFFER[2];
+		adc_temp3_average = ADC_RES_BUFFER[3];
+	} else if (num_samples < NUM_SAMPLES_IN_AVERAGE) {
+		// calculate running average
+		// NewAverage = OldAverage * (n-1) / n + NewValue / n, where n is num elements AFTER new element included
+		num_samples++;
+
+		adc_temp2_average = adc_temp2_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[2] / num_samples;
+		adc_temp3_average = adc_temp3_average * (num_samples-1) / num_samples + ADC_RES_BUFFER[3] / num_samples;
+	} else {
+
+		if (can_loop_counter > CAN_LOOP_DELAY) {
+			can_loop_counter = 0;
+			// send over can
+			int16_t temp0 = adc_temp0_average;
+			int16_t temp1 = adc_temp1_average;
+			int16_t temp2 = adc_temp2_average;
+			int16_t temp3 = adc_temp3_average;
+
+			tx_data[0] = HI8(temp0);
+			tx_data[1] = LO8(temp0);
+			tx_data[2] = HI8(temp1);
+			tx_data[3] = LO8(temp1);
+			tx_data[4] = HI8(temp2);
+			tx_data[5] = LO8(temp2);
+			tx_data[6] = HI8(temp3);
+			tx_data[7] = LO8(temp3);
+			CAN_Send(&hcan1, COOLING_LOOP_TEMPS, tx_data, 8); // TODO: change to hcan2 after testing that DAQ works
+		} else {
+			can_loop_counter++;
+		}
+
+		// reset averages and num_samples
+		adc_temp0_average = 0;
+		adc_temp1_average = 0;
+		adc_temp2_average = 0;
+		adc_temp3_average = 0;
+		num_samples = 0;
+	}
+}
+ */
