@@ -136,8 +136,10 @@ int main(void)
 	  Cooling_Update();
 	  HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
 
+	  uint32_t x =HAL_ADC_GetState(&hadc1);
+
 	  // ADC Conversions
-	  if (adc_loop_counter > ADC_LOOP_DELAY && HAL_ADC_GetState(&hadc1) == HAL_ADC_STATE_READY) {
+	  if (adc_loop_counter > ADC_LOOP_DELAY) {
 		  adc_loop_counter = 0;
 		  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4);
 	  } else {
@@ -147,7 +149,7 @@ int main(void)
 	  // Send temps over CAN
 	  if (can_loop_counter > CAN_LOOP_DELAY) {
 		  can_loop_counter = 0;
-		  CAN_Send_Temp_ADC(&hcan1); // TODO change to hcan2 once confirm DAQ works
+		  CAN_Send_Temp_ADC(&hcan2);
 	  } else {
 		  can_loop_counter++;
 	  }

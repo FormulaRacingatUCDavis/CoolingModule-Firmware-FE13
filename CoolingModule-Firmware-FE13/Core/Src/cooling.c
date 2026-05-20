@@ -78,6 +78,8 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	adc_temp2 = ADC_RES_BUFFER[2];
 	adc_temp3 = ADC_RES_BUFFER[3];
+
+	CLEAR_BIT(hadc->Instance->SR, ADC_SR_EOC);
 }
 
 void CAN_Send_Temp_ADC(CAN_HandleTypeDef *hcan) {
