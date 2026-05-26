@@ -136,12 +136,10 @@ int main(void)
 	  Cooling_Update();
 	  HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
 
-	  uint32_t x =HAL_ADC_GetState(&hadc1);
-
 	  // ADC Conversions
 	  if (adc_loop_counter > ADC_LOOP_DELAY) {
 		  adc_loop_counter = 0;
-		  HAL_ADC_Start_DMA(&hadc1, ADC_RES_BUFFER, 4);
+		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_RES_BUFFER, 4);
 	  } else {
 		  adc_loop_counter++;
 	  }
