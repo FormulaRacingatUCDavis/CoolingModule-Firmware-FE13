@@ -32,8 +32,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ADC_LOOP_DELAY 5
-#define CAN_LOOP_DELAY 10
+
+// assuming a PSC of 8399, each timer tick will be 0.1 ms
+// 	e.g. delay = 2000 ticks, 2000 * 0.1ms = 200ms
+// 	frequency would be 5 Hz
+#define CAN_SEND_DELAY 2000
+#define ADC_CONV_DELAY 2000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,11 +53,13 @@ CAN_HandleTypeDef hcan1;
 CAN_HandleTypeDef hcan2;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-
+uint8_t adc_conv_flag = 0;
+uint8_t can_send_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,6 +71,7 @@ static void MX_CAN2_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -77,6 +84,41 @@ uint16_t ADC_RES_BUFFER[4];
 	// [1] = outlet_temp
 	// [2] = air_in_temp
 	// [3] = air_out_temp
+
+// TIM2 CH3 and CH4 interrupts handle CAN and ADC respectively
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM2)
+    {
+
+        // CAN
+        if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
+        {
+            uint32_t ccr1_val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
+            ccr1_val = (ccr1_val + CAN_SEND_DELAY) % __HAL_TIM_GET_AUTORELOAD(htim);
+            __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, ccr1_val);
+
+            // this code will run at frequency set above
+            if (can_send_flag == 0) {
+            	can_send_flag = 1;
+            }
+        }
+
+        // ADC
+        else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4)
+        {
+            uint32_t ccr2_val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
+            ccr2_val = (ccr2_val + ADC_CONV_DELAY) % __HAL_TIM_GET_AUTORELOAD(htim);
+            __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, ccr2_val);
+
+            // this code will run at frequency set above
+            if (adc_conv_flag == 0) {
+            	adc_conv_flag = 1;
+			}
+        }
+    }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -114,7 +156,10 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3); // TIM2 CH3 is for CAN
+  HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_4); // TIM2 CH4 is for ADC
 
   CAN_Filter_Init(); // hcan1 is PCAN, hcan2 is TCAN
 
@@ -137,19 +182,15 @@ int main(void)
 	  HAL_GPIO_TogglePin(HEARTBEAT_GPIO_Port, HEARTBEAT_Pin);
 
 	  // ADC Conversions
-	  if (adc_loop_counter > ADC_LOOP_DELAY) {
-		  adc_loop_counter = 0;
+	  if (adc_conv_flag == 1) {
 		  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_RES_BUFFER, 4);
-	  } else {
-		  adc_loop_counter++;
+		  adc_conv_flag = 0;
 	  }
 
 	  // Send temps over CAN
-	  if (can_loop_counter > CAN_LOOP_DELAY) {
-		  can_loop_counter = 0;
+	  if (can_send_flag == 1) {
 		  CAN_Send_Temp_ADC(&hcan2);
-	  } else {
-		  can_loop_counter++;
+		  can_send_flag = 0;
 	  }
 
   }
@@ -424,6 +465,68 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8399;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 2000;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
